@@ -61,12 +61,14 @@ class ClusterNode
            puts "Invalid IP or Port (given as #{addr}) - use IP:Port format"
            exit 1
         end
+        password = s.length == 3 ? s.pop : ""
         port = s.pop # removes port from split array
         ip = s.join(":") # if s.length > 1 here, it's IPv6, so restore address
         @r = nil
         @info = {}
         @info[:host] = ip
         @info[:port] = port
+        @info[:password] = password
         @info[:slots] = {}
         @info[:migrating] = {}
         @info[:importing] = {}
@@ -96,7 +98,11 @@ class ClusterNode
         print "Connecting to node #{self}: " if $verbose
         STDOUT.flush
         begin
-            @r = Redis.new(:host => @info[:host], :port => @info[:port], :timeout => 60)
+            if @info[:password].empty?
+                @r = Redis.new(:host => @info[:host], :port => @info[:port], :timeout => 60)
+            else
+                @r = Redis.new(:host => @info[:host], :port => @info[:port], :timeout => 60, :password => @info[:password])
+            end
             @r.ping
         rescue
             xputs "[ERR] Sorry, can't connect to node #{self}"
@@ -1439,7 +1445,7 @@ class RedisTrib
         xputs ">>> Importing data from #{source_addr} to cluster #{argv[1]}"
         use_copy = opt['copy']
         use_replace = opt['replace']
-        
+
         # Check the existing cluster.
         load_cluster_info_from_node(argv[0])
         check_cluster
